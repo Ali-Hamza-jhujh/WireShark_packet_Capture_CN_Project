@@ -6,19 +6,7 @@ A network traffic monitoring and analysis platform built for the Computer Networ
 
 ---
 
-## 📋 Table of Contents
 
-- [Features](#-features)
-- [Project Structure](#-project-structure)
-- [Tech Stack](#-tech-stack)
-- [Setup & Installation](#-setup--installation)
-- [Running the Project](#-running-the-project)
-- [Usage](#-usage)
-- [Dataset / CSV Format](#-dataset--csv-format)
-- [API Endpoints](#-api-endpoints)
-- [Screenshots](#-screenshots)
-
----
 
 ## ✨ Features
 
