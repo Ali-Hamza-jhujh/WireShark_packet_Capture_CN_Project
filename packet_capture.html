@@ -1,0 +1,1793 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Network Packet Analyzer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg: #f0f0f0;
+        --toolbar-bg: #e8e8e8;
+        --menu-bg: #f5f5f5;
+        --border: #b0b0b0;
+        --border-light: #d0d0d0;
+        --accent: #4a90d9;
+        --accent-hover: #357abd;
+        --row-even: #ffffff;
+        --row-odd: #f7f7f7;
+        --row-select: #c3d7f0;
+        --row-select-text: #000;
+        --header-bg: #e0e0e0;
+        --text: #1a1a1a;
+        --text-dim: #555;
+        --green: #00aa00;
+        --red: #cc0000;
+        --blue: #0000cc;
+        --udp-bg: #daeeff;
+        --tcp-bg: #e8ffe8;
+        --tls-bg: #fff3cc;
+        --icmp-bg: #fce8e8;
+        --quic-bg: #f0e8ff;
+        --status-bg: #c8c8c8;
+        --pane-bg: #ffffff;
+        --hex-bg: #fafafa;
+        --font-mono: "Courier New", monospace;
+        --font-ui: "Segoe UI", Tahoma, sans-serif;
+      }
+
+      body {
+        font-family: var(--font-ui);
+        font-size: 12px;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      /* ── TITLE BAR ── */
+      .title-bar {
+        background: linear-gradient(to bottom, #e8e8e8, #d8d8d8);
+        border-bottom: 1px solid var(--border);
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #222;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .title-bar span {
+        flex: 1;
+      }
+      .title-bar .win-btns {
+        display: flex;
+        gap: 0;
+      }
+      .win-btn {
+        width: 30px;
+        height: 20px;
+        border: none;
+        background: transparent;
+        font-size: 11px;
+        cursor: pointer;
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .win-btn:hover {
+        background: #c0c0c0;
+      }
+      .win-btn.close:hover {
+        background: #e81123;
+        color: white;
+      }
+
+      /* ── MENU BAR ── */
+      .menu-bar {
+        background: var(--menu-bg);
+        border-bottom: 1px solid var(--border-light);
+        display: flex;
+        padding: 0 4px;
+      }
+      .menu-item {
+        padding: 3px 8px;
+        cursor: pointer;
+        border-radius: 2px;
+        font-size: 12px;
+        position: relative;
+      }
+      .menu-item:hover {
+        background: var(--accent);
+        color: white;
+      }
+
+      /* ── TOOLBAR ── */
+      .toolbar {
+        background: var(--toolbar-bg);
+        border-bottom: 1px solid var(--border);
+        padding: 3px 4px;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .tb-btn {
+        width: 28px;
+        height: 26px;
+        border: 1px solid transparent;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        color: #333;
+      }
+      .tb-btn:hover:not(:disabled) {
+        background: #d0d0d0;
+        border-color: var(--border);
+      }
+      .tb-btn:active:not(:disabled) {
+        background: #b8b8b8;
+      }
+      .tb-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .tb-btn.active {
+        color: var(--red);
+      }
+      .tb-sep {
+        width: 1px;
+        height: 22px;
+        background: var(--border);
+        margin: 0 3px;
+      }
+
+      /* ── FILTER BAR ── */
+      .filter-bar {
+        display: flex;
+        align-items: center;
+        padding: 3px 4px;
+        background: var(--toolbar-bg);
+        border-bottom: 1px solid var(--border);
+        gap: 4px;
+      }
+      .filter-label {
+        color: var(--text-dim);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .filter-input {
+        flex: 1;
+        height: 22px;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        padding: 2px 6px;
+        font-size: 12px;
+        font-family: var(--font-ui);
+        background: white;
+        color: var(--text);
+        outline: none;
+      }
+      .filter-input:focus {
+        border-color: var(--accent);
+      }
+      .filter-apply {
+        height: 22px;
+        padding: 0 10px;
+        background: linear-gradient(to bottom, #f0f0f0, #dcdcdc);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 11px;
+        color: #333;
+      }
+      .filter-apply:hover {
+        background: linear-gradient(to bottom, #e0e0e0, #cccccc);
+      }
+
+      /* ── ADVANCED FILTER BAR ── */
+      .adv-filter-bar {
+        display: flex;
+        align-items: center;
+        padding: 3px 6px;
+        background: #efefef;
+        border-bottom: 2px solid var(--border);
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .adv-filter-bar label {
+        font-size: 11px;
+        color: #444;
+        white-space: nowrap;
+        font-weight: 600;
+      }
+      .adv-filter-bar select,
+      .adv-filter-bar input[type="text"] {
+        height: 21px;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        padding: 1px 5px;
+        font-size: 11px;
+        font-family: var(--font-ui);
+        background: white;
+        color: var(--text);
+        outline: none;
+      }
+      .adv-filter-bar select {
+        min-width: 80px;
+      }
+      .adv-filter-bar input[type="text"] {
+        width: 130px;
+      }
+      .adv-filter-bar select:focus,
+      .adv-filter-bar input[type="text"]:focus {
+        border-color: var(--accent);
+      }
+      .adv-btn {
+        height: 21px;
+        padding: 0 9px;
+        background: linear-gradient(to bottom, #f0f0f0, #dcdcdc);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 11px;
+        color: #333;
+      }
+      .adv-btn:hover {
+        background: linear-gradient(to bottom, #e0e0e0, #cccccc);
+      }
+      .adv-btn.reset-btn {
+        background: linear-gradient(to bottom, #fff0f0, #f8d8d8);
+        border-color: #c88;
+        color: #800;
+      }
+      .adv-btn.reset-btn:hover {
+        background: linear-gradient(to bottom, #ffe0e0, #f0c0c0);
+      }
+      .adv-sep {
+        width: 1px;
+        height: 18px;
+        background: var(--border);
+        margin: 0 2px;
+      }
+
+      /* ── MAIN AREA ── */
+      .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* ── PACKET TABLE ── */
+      .packet-table-wrap {
+        flex: 3;
+        overflow: auto;
+        border-bottom: 3px solid var(--border);
+        background: var(--pane-bg);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        font-family: var(--font-ui);
+        table-layout: fixed;
+      }
+      thead th {
+        background: var(--header-bg);
+        border-right: 1px solid var(--border);
+        border-bottom: 2px solid var(--border);
+        padding: 3px 6px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 11px;
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        cursor: col-resize;
+        z-index: 10;
+      }
+      thead th:last-child {
+        border-right: none;
+      }
+      thead th .col-sort {
+        display: inline-block;
+        margin-left: 4px;
+        color: #888;
+        font-size: 9px;
+      }
+
+      col.no {
+        width: 55px;
+      }
+      col.time {
+        width: 110px;
+      }
+      col.src {
+        width: 200px;
+      }
+      col.dst {
+        width: 200px;
+      }
+      col.proto {
+        width: 80px;
+      }
+      col.len {
+        width: 65px;
+      }
+      col.info {
+        width: auto;
+      }
+
+      tbody tr {
+        border-bottom: 1px solid #e8e8e8;
+        cursor: pointer;
+      }
+      tbody tr:hover {
+        filter: brightness(0.95);
+      }
+      tbody tr.selected {
+        background: var(--row-select) !important;
+        color: var(--row-select-text) !important;
+      }
+      tbody td {
+        padding: 2px 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border-right: 1px solid #e8e8e8;
+      }
+      tbody td:last-child {
+        border-right: none;
+      }
+
+      .proto-TCP {
+        background: #d9f0d9;
+      }
+      .proto-UDP {
+        background: #d9ecff;
+      }
+      .proto-TLS {
+        background: #fff8cc;
+      }
+      .proto-ICMP {
+        background: #ffdede;
+      }
+      .proto-QUIC {
+        background: #eedeff;
+      }
+      .proto-OTHER {
+        background: #f5f5f5;
+      }
+
+      /* ── LOWER PANES ── */
+      .lower-panes {
+        flex: 2;
+        display: flex;
+        min-height: 0;
+        border-top: 2px solid var(--border);
+      }
+      .detail-pane {
+        flex: 1;
+        overflow: auto;
+        border-right: 3px solid var(--border);
+        background: var(--pane-bg);
+        padding: 4px;
+      }
+      .hex-pane {
+        flex: 1;
+        overflow: auto;
+        background: var(--hex-bg);
+        padding: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+
+      /* detail tree */
+      .tree-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 2px 2px 2px 4px;
+        cursor: pointer;
+        border-radius: 2px;
+        line-height: 1.4;
+      }
+      .tree-item:hover {
+        background: #e8f0f8;
+      }
+      .tree-item .toggle {
+        color: #888;
+        font-size: 10px;
+        min-width: 10px;
+        margin-top: 1px;
+        user-select: none;
+      }
+      .tree-item.expanded > .toggle {
+        color: var(--accent);
+      }
+      .tree-label {
+        flex: 1;
+        font-size: 11.5px;
+      }
+      .tree-label strong {
+        color: var(--accent);
+      }
+      .tree-children {
+        padding-left: 18px;
+        display: none;
+      }
+      .tree-children.open {
+        display: block;
+      }
+      .tree-leaf {
+        padding: 1px 2px 1px 22px;
+        font-size: 11px;
+        color: #333;
+        line-height: 1.5;
+      }
+      .tree-leaf .key {
+        color: #555;
+      }
+      .tree-leaf .val {
+        color: #000080;
+      }
+
+      /* hex display */
+      .hex-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 1px;
+      }
+      .hex-offset {
+        color: #888;
+        min-width: 36px;
+      }
+      .hex-bytes {
+        color: #003366;
+        flex: 1;
+        letter-spacing: 0.5px;
+      }
+      .hex-ascii {
+        color: #555;
+      }
+
+      /* ── STATISTICS PANEL ── */
+      .stats-panel {
+        background: #f9f9f9;
+        border-top: 2px solid var(--border);
+        border-bottom: 1px solid var(--border-light);
+        padding: 5px 10px;
+        display: flex;
+        align-items: center;
+        gap: 0;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .stats-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: #333;
+        white-space: nowrap;
+        margin-right: 10px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .stats-cards {
+        display: flex;
+        gap: 6px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        flex: 1;
+      }
+      .stat-card {
+        background: white;
+        border: 1px solid var(--border-light);
+        border-radius: 3px;
+        padding: 4px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 80px;
+        flex-shrink: 0;
+      }
+      .stat-card .stat-val {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a1a1a;
+        font-family: var(--font-mono);
+        line-height: 1.2;
+      }
+      .stat-card .stat-lbl {
+        font-size: 10px;
+        color: #666;
+        white-space: nowrap;
+        margin-top: 1px;
+      }
+      .stat-card.tcp {
+        border-top: 3px solid #44aa44;
+      }
+      .stat-card.udp {
+        border-top: 3px solid #4a90d9;
+      }
+      .stat-card.icmp {
+        border-top: 3px solid #cc4444;
+      }
+      .stat-card.total {
+        border-top: 3px solid #888;
+      }
+      .stat-card.avg {
+        border-top: 3px solid #aa7700;
+      }
+
+      /* ── LOG PANEL ── */
+      .log-panel {
+        background: #1e1e1e;
+        border-top: 2px solid var(--border);
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        max-height: 130px;
+        min-height: 22px;
+        transition: max-height 0.2s ease;
+      }
+      .log-panel.collapsed {
+        max-height: 22px;
+      }
+      .log-header {
+        background: #2d2d2d;
+        border-bottom: 1px solid #444;
+        padding: 2px 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        flex-shrink: 0;
+        height: 22px;
+        user-select: none;
+      }
+      .log-header:hover {
+        background: #383838;
+      }
+      .log-header-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: #ccc;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex: 1;
+      }
+      .log-toggle {
+        font-size: 9px;
+        color: #888;
+      }
+      .log-clear-btn {
+        font-size: 10px;
+        color: #888;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 1px 5px;
+        border-radius: 2px;
+      }
+      .log-clear-btn:hover {
+        background: #444;
+        color: #ccc;
+      }
+      .log-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 2px 0;
+        font-family: var(--font-mono);
+        font-size: 11px;
+      }
+      .log-line {
+        padding: 1px 8px;
+        display: flex;
+        gap: 10px;
+        line-height: 1.5;
+        border-bottom: 1px solid #2a2a2a;
+      }
+      .log-line:hover {
+        background: #2a2a2a;
+      }
+      .log-ts {
+        color: #6a9955;
+        white-space: nowrap;
+      }
+      .log-lvl {
+        white-space: nowrap;
+        font-weight: 600;
+        min-width: 40px;
+      }
+      .log-lvl.info {
+        color: #4ec9b0;
+      }
+      .log-lvl.warn {
+        color: #ce9178;
+      }
+      .log-lvl.error {
+        color: #f44747;
+      }
+      .log-msg {
+        color: #d4d4d4;
+      }
+      .log-badge {
+        background: #cc4444;
+        color: white;
+        border-radius: 8px;
+        font-size: 9px;
+        padding: 0 4px;
+        min-width: 16px;
+        text-align: center;
+        display: none;
+      }
+      .log-badge.visible {
+        display: inline-block;
+      }
+
+      /* ── STATUS BAR ── */
+      .status-bar {
+        background: var(--status-bg);
+        border-top: 1px solid var(--border);
+        padding: 2px 8px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 11px;
+        height: 20px;
+      }
+      .status-seg {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #888;
+      }
+      .status-dot.capturing {
+        background: #22aa22;
+        animation: blink 1s infinite;
+      }
+      .status-dot.stopped {
+        background: #888;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      /* ── WELCOME / INTERFACE PICKER ── */
+      .welcome-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(240, 240, 240, 0.97);
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+      }
+      .welcome-header {
+        background: linear-gradient(135deg, #1a5fa8 0%, #2980d4 100%);
+        padding: 16px 24px;
+        color: white;
+        font-size: 20px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .ws-shark {
+        font-size: 28px;
+      }
+      .welcome-body {
+        display: flex;
+        gap: 0;
+        flex: 1;
+      }
+      .welcome-left {
+        flex: 1;
+        padding: 16px 20px;
+      }
+      .welcome-right {
+        width: 340px;
+        padding: 16px 20px;
+        border-left: 1px solid var(--border-light);
+        background: #fafafa;
+      }
+
+      .welcome-section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #333;
+        border-bottom: 1px solid var(--border-light);
+        padding-bottom: 4px;
+        margin-bottom: 8px;
+        margin-top: 16px;
+      }
+      .welcome-section-title:first-child {
+        margin-top: 0;
+      }
+
+      .file-list {
+        list-style: none;
+      }
+      .file-list li {
+        padding: 3px 0;
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .file-list li:hover {
+        text-decoration: underline;
+      }
+      .file-list li.not-found {
+        color: #888;
+      }
+
+      .iface-list {
+        list-style: none;
+      }
+      .iface-item {
+        display: flex;
+        align-items: center;
+        padding: 5px 8px;
+        cursor: pointer;
+        border-radius: 3px;
+        border: 1px solid transparent;
+        margin-bottom: 3px;
+        background: white;
+        gap: 8px;
+      }
+      .iface-item:hover {
+        border-color: var(--accent);
+        background: #ebf4ff;
+      }
+      .iface-item.selected {
+        border-color: var(--accent);
+        background: #c3d7f0;
+      }
+      .iface-icon {
+        font-size: 16px;
+      }
+      .iface-name {
+        font-weight: 600;
+        font-size: 12px;
+        flex: 1;
+      }
+      .iface-graph {
+        height: 22px;
+        flex: 2;
+      }
+      .iface-graph canvas {
+        width: 100%;
+        height: 22px;
+      }
+
+      .filter-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .filter-row label {
+        font-size: 11px;
+        color: #555;
+        white-space: nowrap;
+      }
+      .filter-row input {
+        flex: 1;
+        height: 22px;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        padding: 2px 6px;
+        font-size: 12px;
+        outline: none;
+      }
+      .filter-row input:focus {
+        border-color: var(--accent);
+      }
+
+      .learn-link {
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .learn-link:hover {
+        text-decoration: underline;
+      }
+      .version-note {
+        font-size: 11px;
+        color: #666;
+        margin-top: 12px;
+      }
+
+      .file-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: white;
+        border: 1px solid #b0b0b0;
+        min-width: 140px;
+        color: #000;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        z-index: 999;
+      }
+      .file-dropdown div {
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      .file-dropdown div:hover {
+        background: #4a90d9;
+        color: white;
+      }
+      .menu-item:hover .file-dropdown {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- TITLE BAR -->
+    <div class="title-bar">
+      <span>🦈</span>
+      <span id="titleText">The Wireshark Network Analyzer</span>
+      <div class="win-btns">
+        <button class="win-btn">─</button>
+        <button class="win-btn">□</button>
+        <button class="win-btn close">✕</button>
+      </div>
+    </div>
+
+    <!-- MENU BAR -->
+    <div class="menu-bar">
+      <div
+        class="menu-item"
+        onmouseover="showFileMenu()"
+        onmouseout="hideFileMenu()"
+      >
+        File
+        <div id="fileMenu" class="file-dropdown">
+          <div onclick="document.getElementById('csvFile').click()">
+            Open CSV
+          </div>
+          <div onclick="saveCSV()">Save CSV</div>
+        </div>
+      </div>
+      <input type="file" id="csvFile" accept=".csv" style="display: none" />
+      <div class="menu-item">Edit</div>
+      <div class="menu-item">View</div>
+      <div class="menu-item">Go</div>
+      <div class="menu-item">Capture</div>
+      <div class="menu-item">Analyze</div>
+      <div class="menu-item">Statistics</div>
+      <div class="menu-item">Telephony</div>
+      <div class="menu-item">Wireless</div>
+      <div class="menu-item">Tools</div>
+      <div class="menu-item">Help</div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <button
+        class="tb-btn active"
+        id="btnStart"
+        title="Start capturing packets"
+        onclick="startCapture()"
+      >
+        ▶
+      </button>
+      <button
+        class="tb-btn"
+        id="btnStop"
+        title="Stop capturing"
+        onclick="stopCapture()"
+        disabled
+      >
+        ⏹
+      </button>
+      <button class="tb-btn" title="Restart" onclick="restartCapture()">
+        🔄
+      </button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" title="Open">📂</button>
+      <button class="tb-btn" title="Save as CSV" onclick="saveCSV()">💾</button>
+      <button class="tb-btn" title="Close">✕</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" title="Find">🔍</button>
+      <button class="tb-btn" title="Back">◀</button>
+      <button class="tb-btn" title="Forward">▶</button>
+      <button class="tb-btn" title="Go to first">⏮</button>
+      <button class="tb-btn" title="Go to last">⏭</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" title="Colorize" onclick="toggleColorize()">
+        🎨
+      </button>
+      <button class="tb-btn" title="Zoom in">🔎</button>
+      <button class="tb-btn" title="Zoom out">🔍</button>
+      <button class="tb-btn" title="Normal size">⊡</button>
+      <button class="tb-btn" title="Resize columns">⇔</button>
+    </div>
+
+    <!-- DISPLAY FILTER BAR (original) -->
+    <div class="filter-bar">
+      <span class="filter-label">Apply a display filter … &lt;Ctrl-/&gt;</span>
+      <input
+        class="filter-input"
+        id="filterInput"
+        type="text"
+        placeholder=""
+        oninput="applyFilter()"
+      />
+      <button class="filter-apply" onclick="applyFilter()">→</button>
+    </div>
+
+    <!-- ── ADVANCED FILTER BAR (NEW) ── -->
+    <div class="adv-filter-bar">
+      <label>Protocol:</label>
+      <select id="filterProto">
+        <option value="">All</option>
+        <option value="TCP">TCP</option>
+        <option value="UDP">UDP</option>
+        <option value="ICMP">ICMP</option>
+        <option value="TLS">TLS</option>
+        <option value="QUIC">QUIC</option>
+      </select>
+      <div class="adv-sep"></div>
+      <label>Src IP:</label>
+      <input type="text" id="filterSrcIP" placeholder="e.g. 192.168.1.5" />
+      <div class="adv-sep"></div>
+      <label>Dst IP:</label>
+      <input type="text" id="filterDstIP" placeholder="e.g. 8.8.8.8" />
+      <div class="adv-sep"></div>
+      <button class="adv-btn" onclick="applyAdvFilter()">Filter</button>
+      <button class="adv-btn reset-btn" onclick="resetAdvFilter()">
+        Reset
+      </button>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main" id="mainArea">
+      <!-- PACKET TABLE -->
+      <div class="packet-table-wrap" id="packetTableWrap">
+        <table id="packetTable">
+          <colgroup>
+            <col class="no" />
+            <col class="time" />
+            <col class="src" />
+            <col class="dst" />
+            <col class="proto" />
+            <col class="len" />
+            <col class="info" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>No.<span class="col-sort">▾</span></th>
+              <th>Time</th>
+              <th>Source</th>
+              <th>Destination</th>
+              <th>Protocol</th>
+              <th>Length</th>
+              <th>Info</th>
+            </tr>
+          </thead>
+          <tbody id="packetBody"></tbody>
+        </table>
+      </div>
+
+      <!-- LOWER PANES -->
+      <div class="lower-panes">
+        <div class="detail-pane" id="detailPane">
+          <div style="color: #aaa; font-size: 11px; padding: 8px">
+            Select a packet to see details.
+          </div>
+        </div>
+        <div class="hex-pane" id="hexPane">
+          <div style="color: #aaa; font-size: 11px">No data.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STATISTICS PANEL (NEW) ── -->
+    <div class="stats-panel" id="statsPanel">
+      <div class="stats-title">📊 Statistics</div>
+      <div class="stats-cards">
+        <div class="stat-card total">
+          <span class="stat-val" id="statTotal">0</span>
+          <span class="stat-lbl">Total Packets</span>
+        </div>
+        <div class="stat-card tcp">
+          <span class="stat-val" id="statTCP">0</span>
+          <span class="stat-lbl">TCP</span>
+        </div>
+        <div class="stat-card udp">
+          <span class="stat-val" id="statUDP">0</span>
+          <span class="stat-lbl">UDP</span>
+        </div>
+        <div class="stat-card icmp">
+          <span class="stat-val" id="statICMP">0</span>
+          <span class="stat-lbl">ICMP</span>
+        </div>
+        <div class="stat-card avg">
+          <span class="stat-val" id="statAvg">0</span>
+          <span class="stat-lbl">Avg Size (B)</span>
+        </div>
+        <div
+          class="stat-card"
+          style="border-top: 3px solid #888; min-width: 90px"
+        >
+          <span class="stat-val" id="statOther">0</span>
+          <span class="stat-lbl">Other</span>
+        </div>
+        <div
+          class="stat-card"
+          style="border-top: 3px solid #55aa99; min-width: 90px"
+        >
+          <span class="stat-val" id="statDisplayed">0</span>
+          <span class="stat-lbl">Displayed</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LOG PANEL (NEW) ── -->
+    <div class="log-panel" id="logPanel">
+      <div class="log-header" onclick="toggleLog()">
+        <div class="log-header-title">
+          <span>📋</span>
+          <span>Capture Log</span>
+          <span class="log-badge" id="logBadge">0</span>
+        </div>
+        <button
+          class="log-clear-btn"
+          onclick="
+            event.stopPropagation();
+            clearLog();
+          "
+        >
+          Clear
+        </button>
+        <span class="log-toggle" id="logToggleIcon">▲</span>
+      </div>
+      <div class="log-body" id="logBody"></div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <div class="status-seg">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Ready to load or capture</span>
+      </div>
+      <div class="status-seg" style="margin-left: auto">
+        <span id="packetCount">No Packets</span>
+      </div>
+      <div class="status-seg">Profile: Default</div>
+    </div>
+
+    <!-- WELCOME OVERLAY -->
+    <div class="welcome-overlay" id="welcomeOverlay">
+      <div class="welcome-header">
+        <span class="ws-shark">🦈</span>
+        <div>
+          <div>Welcome to Wireshark</div>
+          <div style="font-size: 13px; font-weight: 400; opacity: 0.85">
+            Network Protocol Analyzer
+          </div>
+        </div>
+      </div>
+      <div class="welcome-body">
+        <div class="welcome-left">
+          <div class="welcome-section-title">Open</div>
+          <ul class="file-list" id="recentFiles">
+            <li class="not-found">
+              📄 C:\Users\User\Desktop\icmp-ethereal-trace-2 (not found)
+            </li>
+            <li class="not-found">
+              📄 C:\Users\User\Desktop\icmp-ethereal-trace-1 (not found)
+            </li>
+            <li>
+              📄 C:\Users\User\Downloads\wireshark-traces\NAT_ISP_side.pcap (84
+              KB)
+            </li>
+            <li>
+              📄 C:\Users\User\Downloads\wireshark-traces\NAT_home_side.pcap (78
+              KB)
+            </li>
+            <li>
+              📄 C:\Users\User\Downloads\wireshark-traces\ip-ethereal-trace-1
+              (261 KB)
+            </li>
+            <li>
+              📄 C:\Users\User\Downloads\wireshark-traces\icmp-ethereal-trace-2
+              (11 KB)
+            </li>
+            <li>
+              📄 C:\Users\User\Downloads\wireshark-traces\tcp-ethereal-trace-1
+              (177 KB)
+            </li>
+            <li class="not-found">
+              📄 C:\Users\User\Desktop\al.pcapng (not found)
+            </li>
+          </ul>
+          <div style="margin-top: 20px">
+            <div class="welcome-section-title">Learn</div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap">
+              <span class="learn-link">User's Guide</span>
+              <span class="learn-link">Wiki</span>
+              <span class="learn-link">Questions and Answers</span>
+              <span class="learn-link">Mailing Lists</span>
+              <span class="learn-link">SharkFest</span>
+              <span class="learn-link">Wireshark Discord</span>
+              <span class="learn-link">Donate</span>
+            </div>
+            <div class="version-note" style="margin-top: 8px">
+              You are running Wireshark 4.6.0 (v4.6.0-0-gcdfb6721e77c). You
+              receive automatic updates.
+            </div>
+          </div>
+        </div>
+
+        <div class="welcome-right">
+          <div class="welcome-section-title">Capture</div>
+          <div class="filter-row">
+            <label>…using this filter:</label>
+            <input
+              type="text"
+              id="captureFilter"
+              placeholder="Enter a capture filter …"
+            />
+          </div>
+          <div style="font-size: 11px; color: #555; margin-bottom: 6px">
+            Select interface to start capturing:
+          </div>
+          <ul class="iface-list" id="ifaceList"></ul>
+          <div style="margin-top: 12px; text-align: right">
+            <button
+              onclick="closeWelcome()"
+              style="
+                padding: 4px 14px;
+                background: #e0e0e0;
+                border: 1px solid #aaa;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 12px;
+              "
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── CONFIG ────────────────────────────────────────────────────────────────────
+      const API_BASE = "http://localhost:5000";
+
+      // ── STATE ─────────────────────────────────────────────────────────────────────
+      let packets = [];
+      let filteredPackets = [];
+      let selectedRow = -1;
+      let capturing = false;
+      let pollTimer = null;
+      let startTime = null;
+      let colorize = true;
+      let selectedIface = null;
+
+      // ── LOG ───────────────────────────────────────────────────────────────────────
+      let logCollapsed = false;
+      let logErrorCount = 0;
+
+      function addLog(level, msg) {
+        const body = document.getElementById("logBody");
+        const now = new Date();
+        const ts =
+          now.toTimeString().slice(0, 8) +
+          "." +
+          String(now.getMilliseconds()).padStart(3, "0");
+        const line = document.createElement("div");
+        line.className = "log-line";
+        line.innerHTML = `
+          <span class="log-ts">${ts}</span>
+          <span class="log-lvl ${level}">${level.toUpperCase()}</span>
+          <span class="log-msg">${msg}</span>
+        `;
+        body.appendChild(line);
+        body.scrollTop = body.scrollHeight;
+
+        if (level === "error") {
+          logErrorCount++;
+          const badge = document.getElementById("logBadge");
+          badge.textContent = logErrorCount;
+          badge.classList.add("visible");
+        }
+      }
+
+      function clearLog() {
+        document.getElementById("logBody").innerHTML = "";
+        logErrorCount = 0;
+        const badge = document.getElementById("logBadge");
+        badge.textContent = "0";
+        badge.classList.remove("visible");
+        addLog("info", "Log cleared.");
+      }
+
+      function toggleLog() {
+        logCollapsed = !logCollapsed;
+        const panel = document.getElementById("logPanel");
+        const icon = document.getElementById("logToggleIcon");
+        panel.classList.toggle("collapsed", logCollapsed);
+        icon.textContent = logCollapsed ? "▼" : "▲";
+      }
+
+      // ── SAVE CSV ──────────────────────────────────────────────────────────────────
+      function saveCSV() {
+        if (filteredPackets.length === 0) {
+          addLog("warn", "No packets to save.");
+          alert("No packets to save.");
+          return;
+        }
+        const rows = [
+          "src_ip,dst_ip,protocol,packet_size,info,src_port,dst_port,service",
+        ];
+        filteredPackets.forEach((p) => {
+          const info = (p.info || buildInfo(p)).replace(/,/g, ";");
+          rows.push(
+            [
+              p.src_ip || "",
+              p.dst_ip || "",
+              p.protocol || "OTHER",
+              p.packet_size || 0,
+              info,
+              p.src_port || "",
+              p.dst_port || "",
+              p.service || "",
+            ].join(","),
+          );
+        });
+        const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        a.download = `capture_${ts}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        addLog(
+          "info",
+          `Saved ${filteredPackets.length} packets → ${a.download}`,
+        );
+      }
+
+      const FALLBACK_IFACES = [
+        { name: "Wi-Fi", icon: "📶", type: "wifi" },
+        {
+          name: "Adapter for loopback traffic capture",
+          icon: "🔁",
+          type: "loop",
+        },
+        { name: "Local Area Connection* 10", icon: "🔌", type: "eth" },
+        { name: "Local Area Connection* 9", icon: "🔌", type: "eth" },
+        { name: "Local Area Connection* 8", icon: "🔌", type: "eth" },
+        { name: "vEthernet (Default Switch)", icon: "🖧", type: "veth" },
+        { name: "Local Area Connection* 2", icon: "🔌", type: "eth" },
+      ];
+
+      async function loadInterfaces() {
+        let ifaces = FALLBACK_IFACES;
+        try {
+          const r = await fetch(`${API_BASE}/interfaces`);
+          if (r.ok) {
+            const data = await r.json();
+            ifaces = data.map((n) => ({
+              name: n,
+              icon: n.toLowerCase().includes("wi")
+                ? "📶"
+                : n.toLowerCase().includes("loop")
+                  ? "🔁"
+                  : "🔌",
+              type: "eth",
+            }));
+          }
+        } catch (e) {}
+
+        const ul = document.getElementById("ifaceList");
+        ul.innerHTML = "";
+        ifaces.forEach((iface) => {
+          const li = document.createElement("li");
+          li.className = "iface-item";
+          li.innerHTML = `
+            <span class="iface-icon">${iface.icon}</span>
+            <span class="iface-name">${iface.name}</span>
+            <canvas class="iface-graph" width="120" height="22" data-name="${iface.name}"></canvas>
+          `;
+          li.onclick = () => {
+            document
+              .querySelectorAll(".iface-item")
+              .forEach((x) => x.classList.remove("selected"));
+            li.classList.add("selected");
+            selectedIface = iface.name;
+            setTimeout(() => {
+              closeWelcome();
+              startCaptureOnIface(iface.name);
+            }, 150);
+          };
+          ul.appendChild(li);
+          drawIfaceGraph(li.querySelector("canvas"));
+        });
+      }
+
+      function drawIfaceGraph(canvas) {
+        const ctx = canvas.getContext("2d");
+        const w = 120,
+          h = 22;
+        ctx.clearRect(0, 0, w, h);
+        const pts = Array.from({ length: 30 }, () => Math.random() * h * 0.8);
+        ctx.beginPath();
+        ctx.strokeStyle = "#4a90d9";
+        ctx.lineWidth = 1.2;
+        pts.forEach((y, i) => {
+          const x = (i / (pts.length - 1)) * w;
+          i === 0 ? ctx.moveTo(x, h - y) : ctx.lineTo(x, h - y);
+        });
+        ctx.stroke();
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.fillStyle = "rgba(74,144,217,0.15)";
+        ctx.fill();
+      }
+
+      // ── WELCOME ───────────────────────────────────────────────────────────────────
+      function closeWelcome() {
+        document.getElementById("welcomeOverlay").style.display = "none";
+      }
+
+      // ── CAPTURE ───────────────────────────────────────────────────────────────────
+      async function startCaptureOnIface(iface) {
+        capturing = true;
+        startTime = performance.now();
+        packets = [];
+        filteredPackets = [];
+        renderTable();
+        updateStatistics();
+        updateStatus("capturing", `Capturing on ${iface} …`);
+        addLog("info", `Capture started on interface: ${iface}`);
+        document.getElementById("btnStart").disabled = true;
+        document.getElementById("btnStop").disabled = false;
+        document.getElementById("titleText").textContent =
+          `Capturing from ${iface}`;
+        try {
+          await fetch(`${API_BASE}/start?iface=${encodeURIComponent(iface)}`);
+        } catch (e) {}
+        pollTimer = setInterval(fetchPackets, 800);
+      }
+
+      function startCapture() {
+        if (capturing) return;
+        if (!selectedIface) {
+          document.getElementById("welcomeOverlay").style.display = "flex";
+          return;
+        }
+        startCaptureOnIface(selectedIface);
+      }
+
+      async function stopCapture() {
+        if (!capturing) return;
+        clearInterval(pollTimer);
+        capturing = false;
+        updateStatus("stopped", "Capture stopped.");
+        addLog("info", `Capture stopped. Total packets: ${packets.length}`);
+        document.getElementById("btnStart").disabled = false;
+        document.getElementById("btnStop").disabled = true;
+        document.getElementById("titleText").textContent =
+          "The Wireshark Network Analyzer";
+        try {
+          await fetch(`${API_BASE}/stop`);
+        } catch (e) {}
+      }
+
+      function restartCapture() {
+        stopCapture();
+        setTimeout(() => {
+          if (selectedIface) startCaptureOnIface(selectedIface);
+        }, 300);
+      }
+
+      async function fetchPackets() {
+        try {
+          const r = await fetch(`${API_BASE}/packets`);
+          if (!r.ok) return;
+          const data = await r.json();
+          if (data.length !== packets.length) {
+            packets = data;
+            applyAdvFilter();
+          }
+        } catch (e) {
+          addLog("error", "Backend unreachable — no live data.");
+          // backend not running – no demo injection (commented out in original)
+        }
+      }
+
+      // ── DISPLAY FILTER (original) ─────────────────────────────────────────────────
+      function applyFilter() {
+        const q = document
+          .getElementById("filterInput")
+          .value.toLowerCase()
+          .trim();
+        // Also read advanced filter fields so both work together
+        const proto = document
+          .getElementById("filterProto")
+          .value.toLowerCase();
+        const srcIP = document
+          .getElementById("filterSrcIP")
+          .value.toLowerCase()
+          .trim();
+        const dstIP = document
+          .getElementById("filterDstIP")
+          .value.toLowerCase()
+          .trim();
+
+        filteredPackets = packets.filter((p) => {
+          const matchQ =
+            !q ||
+            (p.protocol || "").toLowerCase().includes(q) ||
+            (p.src_ip || "").toLowerCase().includes(q) ||
+            (p.dst_ip || "").toLowerCase().includes(q) ||
+            (p.service || "").toLowerCase().includes(q);
+          const matchProto =
+            !proto || (p.protocol || "").toLowerCase() === proto;
+          const matchSrc =
+            !srcIP || (p.src_ip || "").toLowerCase().includes(srcIP);
+          const matchDst =
+            !dstIP || (p.dst_ip || "").toLowerCase().includes(dstIP);
+          return matchQ && matchProto && matchSrc && matchDst;
+        });
+        renderTable();
+        updateStatistics();
+        // log filter activity only when user actively changed a field
+      }
+
+      // ── ADVANCED FILTER ───────────────────────────────────────────────────────────
+      function applyAdvFilter() {
+        applyFilter();
+        const proto = document.getElementById("filterProto").value;
+        const src = document.getElementById("filterSrcIP").value.trim();
+        const dst = document.getElementById("filterDstIP").value.trim();
+        const parts = [];
+        if (proto) parts.push(`protocol=${proto}`);
+        if (src) parts.push(`src=${src}`);
+        if (dst) parts.push(`dst=${dst}`);
+        if (parts.length)
+          addLog(
+            "info",
+            `Filter applied [${parts.join(", ")}] → ${filteredPackets.length} packets displayed.`,
+          );
+      }
+
+      function resetAdvFilter() {
+        document.getElementById("filterProto").value = "";
+        document.getElementById("filterSrcIP").value = "";
+        document.getElementById("filterDstIP").value = "";
+        applyFilter();
+        addLog("info", "Filters reset — showing all packets.");
+      }
+
+      // ── STATISTICS ────────────────────────────────────────────────────────────────
+      function updateStatistics() {
+        let tcp = 0,
+          udp = 0,
+          icmp = 0,
+          other = 0,
+          totalSize = 0;
+        const total = packets.length;
+
+        packets.forEach((p) => {
+          const proto = (p.protocol || "OTHER").toUpperCase();
+          totalSize += parseInt(p.packet_size || 0);
+          if (proto === "TCP") tcp++;
+          else if (proto === "UDP") udp++;
+          else if (proto === "ICMP") icmp++;
+          else other++;
+        });
+
+        const avg = total > 0 ? Math.round(totalSize / total) : 0;
+
+        document.getElementById("statTotal").textContent = total;
+        document.getElementById("statTCP").textContent = tcp;
+        document.getElementById("statUDP").textContent = udp;
+        document.getElementById("statICMP").textContent = icmp;
+        document.getElementById("statOther").textContent = other;
+        document.getElementById("statAvg").textContent = avg;
+        document.getElementById("statDisplayed").textContent =
+          filteredPackets.length;
+      }
+
+      // ── TABLE RENDER ──────────────────────────────────────────────────────────────
+      function protoClass(proto) {
+        if (!proto) return "proto-OTHER";
+        if (proto.startsWith("TLS")) return "proto-TLS";
+        if (["TCP", "UDP", "ICMP", "QUIC"].includes(proto))
+          return `proto-${proto}`;
+        return "proto-OTHER";
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById("packetBody");
+        const autoScroll =
+          tbody.parentElement.scrollTop + tbody.parentElement.clientHeight >=
+          tbody.parentElement.scrollHeight - 20;
+
+        tbody.innerHTML = "";
+        filteredPackets.forEach((p, i) => {
+          const tr = document.createElement("tr");
+          const cls = colorize ? protoClass(p.protocol) : "";
+          const info = p.info || buildInfo(p);
+          tr.className = cls + (selectedRow === i ? " selected" : "");
+          tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${(i * 0.037 + Math.random() * 0.005).toFixed(9)}</td>
+            <td title="${p.src_ip}">${p.src_ip}</td>
+            <td title="${p.dst_ip}">${p.dst_ip}</td>
+            <td>${p.protocol || "OTHER"}</td>
+            <td>${p.packet_size || 0}</td>
+            <td title="${info}">${info}</td>
+          `;
+          tr.onclick = () => selectPacket(i, tr);
+          tbody.appendChild(tr);
+        });
+
+        const cnt = filteredPackets.length;
+        document.getElementById("packetCount").textContent =
+          cnt > 0
+            ? `Packets: ${packets.length}  Displayed: ${cnt}  Marked: 0  Dropped: 0`
+            : "No Packets";
+
+        if (autoScroll && capturing) {
+          tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+        }
+      }
+
+      function buildInfo(p) {
+        if (p.protocol === "TCP" && p.src_port && p.dst_port)
+          return `${p.src_port} → ${p.dst_port} [ACK] Seq=1 Ack=1 Win=65535 Len=0`;
+        if (p.protocol === "UDP" && p.src_port && p.dst_port)
+          return `${p.src_port} → ${p.dst_port} Len=${(p.packet_size || 60) - 28}`;
+        return `Protocol: ${p.protocol || "OTHER"}`;
+      }
+
+      // ── SELECT PACKET ──────────────────────────────────────────────────────────────
+      function selectPacket(idx, tr) {
+        document
+          .querySelectorAll("#packetBody tr")
+          .forEach((r) => r.classList.remove("selected"));
+        tr.classList.add("selected");
+        selectedRow = idx;
+        const p = filteredPackets[idx];
+        renderDetail(p);
+        renderHex(p);
+      }
+
+      function renderDetail(p) {
+        const pane = document.getElementById("detailPane");
+        const size = p.packet_size || 80;
+        const sections = [
+          {
+            label: `Frame ${selectedRow + 1}: Packet, ${size} bytes on wire (${size * 8} bits), ${size} bytes captured (${size * 8} bits)`,
+            children: [
+              `Encapsulation type: Ethernet (1)`,
+              `Arrival Time: Apr 24, 2026 20:28:${(30 + (selectedRow % 30)).toString().padStart(2, "0")}.000000000 PKT`,
+              `Frame Number: ${selectedRow + 1}`,
+              `Frame Length: ${size} bytes (${size * 8} bits)`,
+              `Capture Length: ${size} bytes (${size * 8} bits)`,
+            ],
+          },
+          {
+            label: `Ethernet II, Src: be:13:87:5a:12:83, Dst: dc:90:09:d0:b8:a8`,
+            children: [
+              `Destination: dc:90:09:d0:b8:a8`,
+              `Source: be:13:87:5a:12:83`,
+              `Type: IPv6 (0x86dd)`,
+            ],
+          },
+          {
+            label: `Internet Protocol Version 6, Src: ${p.src_ip}, Dst: ${p.dst_ip}`,
+            children: [
+              `Version: 6`,
+              `Traffic Class: 0x00 (DSCP: CS0, ECN: Not-ECT)`,
+              `Flow Label: 0x00000`,
+              `Payload Length: ${size - 40}`,
+              `Next Header: ${p.protocol === "TCP" ? "TCP (6)" : p.protocol === "UDP" ? "UDP (17)" : "ICMPv6 (58)"}`,
+              `Hop Limit: 64`,
+              `Source Address: ${p.src_ip}`,
+              `Destination Address: ${p.dst_ip}`,
+            ],
+          },
+          p.src_port
+            ? {
+                label: `${p.protocol}, Src Port: ${p.src_port}, Dst Port: ${p.dst_port}`,
+                children: [
+                  `Source Port: ${p.src_port}`,
+                  `Destination Port: ${p.dst_port}`,
+                  p.protocol === "TCP"
+                    ? `Sequence Number: 1`
+                    : `Length: ${size - 40}`,
+                  p.protocol === "TCP"
+                    ? `Acknowledgment Number: 1`
+                    : `Checksum: 0x0000`,
+                  p.protocol === "TCP" ? `Flags: 0x010 (ACK)` : null,
+                  p.protocol === "TCP" ? `Window: 65535` : null,
+                ].filter(Boolean),
+              }
+            : null,
+          {
+            label: `Data (${Math.max(0, size - 60)} bytes)`,
+            children: [`Data: ${size - 60} bytes`],
+          },
+        ].filter(Boolean);
+
+        pane.innerHTML = "";
+        sections.forEach((sec, secIdx) => {
+          const item = document.createElement("div");
+          item.className = "tree-item";
+          item.innerHTML = `<span class="toggle">▶</span><span class="tree-label">${sec.label}</span>`;
+          const children = document.createElement("div");
+          children.className = "tree-children";
+          sec.children.forEach((c) => {
+            const [k, ...vs] = c.split(": ");
+            const leaf = document.createElement("div");
+            leaf.className = "tree-leaf";
+            leaf.innerHTML = vs.length
+              ? `<span class="key">${k}:</span> <span class="val">${vs.join(": ")}</span>`
+              : `<span class="key">${k}</span>`;
+            children.appendChild(leaf);
+          });
+          item.onclick = () => {
+            item.classList.toggle("expanded");
+            children.classList.toggle("open");
+            item.querySelector(".toggle").textContent = item.classList.contains(
+              "expanded",
+            )
+              ? "▼"
+              : "▶";
+          };
+          pane.appendChild(item);
+          pane.appendChild(children);
+          if (secIdx < 2) {
+            item.classList.add("expanded");
+            children.classList.add("open");
+            item.querySelector(".toggle").textContent = "▼";
+          }
+        });
+      }
+
+      function renderHex(p) {
+        const pane = document.getElementById("hexPane");
+        const size = p.packet_size || 80;
+        pane.innerHTML = "";
+        const bytes = [];
+        for (let i = 0; i < Math.min(size, 256); i++)
+          bytes.push(Math.floor(Math.random() * 256));
+        for (let i = 0; i < bytes.length; i += 16) {
+          const chunk = bytes.slice(i, i + 16);
+          const offset = i.toString(16).padStart(4, "0");
+          const hexStr = chunk
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join(" ");
+          const ascii = chunk
+            .map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : "."))
+            .join("");
+          const row = document.createElement("div");
+          row.className = "hex-row";
+          row.innerHTML = `
+            <span class="hex-offset">${offset}</span>
+            <span class="hex-bytes">${hexStr.padEnd(47, " ")}</span>
+            <span class="hex-ascii">${ascii}</span>
+          `;
+          pane.appendChild(row);
+        }
+      }
+
+      // ── STATUS ────────────────────────────────────────────────────────────────────
+      function updateStatus(state, msg) {
+        document.getElementById("statusDot").className = "status-dot " + state;
+        document.getElementById("statusText").textContent = msg;
+      }
+
+      function toggleColorize() {
+        colorize = !colorize;
+        renderTable();
+      }
+
+      // ── CSV LOAD ──────────────────────────────────────────────────────────────────
+      function handleCSV(event) {
+        const file = event.target.files[0];
+        if (!file) {
+          alert("No file selected");
+          return;
+        }
+        stopCapture();
+        clearInterval(pollTimer);
+        capturing = false;
+        updateStatus("stopped", "Loading CSV file...");
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          packets = parseCSV(e.target.result);
+          filteredPackets = [...packets];
+          selectedRow = -1;
+          applyFilter();
+          updateStatistics();
+          updateStatus(
+            "stopped",
+            `CSV Loaded Successfully (${packets.length} packets)`,
+          );
+          addLog(
+            "info",
+            `CSV file loaded: "${file.name}" — ${packets.length} packets imported.`,
+          );
+        };
+        reader.readAsText(file);
+      }
+
+      function parseCSV(text) {
+        const lines = text.split("\n");
+        const result = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(",");
+          if (cols.length < 5) continue;
+          result.push({
+            src_ip: cols[0],
+            dst_ip: cols[1],
+            protocol: cols[2],
+            packet_size: Number(cols[3]),
+            info: cols[4],
+          });
+        }
+        return result;
+      }
+
+      document.getElementById("csvFile").addEventListener("change", handleCSV);
+
+      // keyboard shortcut Ctrl+/ focuses filter
+      document.addEventListener("keydown", (e) => {
+        if (e.ctrlKey && e.key === "/") {
+          e.preventDefault();
+          document.getElementById("filterInput").focus();
+        }
+      });
+
+      // ── INIT ──────────────────────────────────────────────────────────────────────
+      loadInterfaces();
+      addLog(
+        "info",
+        "Wireshark Network Analyzer started. Ready to capture or load file.",
+      );
+    </script>
+  </body>
+</html>
