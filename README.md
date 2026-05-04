@@ -194,15 +194,6 @@ src_ip, dst_ip, protocol, packet_size, info, src_port, dst_port, service
 
 ---
 
-## 📸 Screenshots
-
-> Add screenshots of your running application here.
-
-| Welcome Screen | Live Capture | Packet Detail |
-|:--------------:|:------------:|:-------------:|
-| *(screenshot)* | *(screenshot)* | *(screenshot)* |
-
----
 
 ## 👤 Author
 
